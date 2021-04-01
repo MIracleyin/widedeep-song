@@ -2,6 +2,8 @@
 # !@time: 2021/3/29 下午9:47
 # !@author: superMC @email: 18758266469@163.com
 # !@fileName: widedeep.py
+from abc import ABC
+
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, Dense, Dropout
 from tensorflow.keras.regularizers import l2
@@ -49,6 +51,34 @@ class WideDeep(tf.keras.Model):
         """
 
         super(WideDeep, self).__init__()
+        self.embed_model = EmbedModel(feature_columns, deep_hidden_units, wide_hidden_units, activation=activation,
+                                      label_embed_nums=label_embed_nums, dnn_dropout=dnn_dropout, embed_reg=embed_reg)
+
+        self.dense_feature_columns, self.embedding_feature_columns, self.raw_feature_columns = feature_columns
+        # classes_num binary classification
+        self.final_linear = Dense(classes)
+
+    def call(self, inputs, **kwargs):
+        out_embedding = self.embed_model(inputs)
+        output = self.final_linear(out_embedding)
+        # out
+        output = tf.nn.sigmoid(output)
+        return output
+
+    def create_model(self):
+        dense_inputs = Input(shape=(len(self.dense_feature_columns),), dtype=tf.float32)
+        embedding_inputs = Input(shape=(len(self.embedding_feature_columns),), dtype=tf.int32)
+        raw_inputs = Input(shape=(len(self.raw_feature_columns, )), dtype=tf.int32)
+        model = tf.keras.Model(inputs=[dense_inputs, embedding_inputs, raw_inputs],
+                               outputs=self([dense_inputs, embedding_inputs, raw_inputs]))
+        embed_model = self.embed_model.create_model()
+        return model, embed_model
+
+
+class EmbedModel(tf.keras.Model, ABC):
+    def __init__(self, feature_columns, deep_hidden_units, wide_hidden_units, activation='relu', label_embed_nums=512,
+                 dnn_dropout=0.1, embed_reg=1e-4, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.dense_feature_columns, self.embedding_feature_columns, self.raw_feature_columns = feature_columns
         # sparse feature embedding
         self.embed_layers = {
@@ -59,16 +89,13 @@ class WideDeep(tf.keras.Model):
                                          embeddings_regularizer=l2(embed_reg))
             for i, feat in enumerate(self.embedding_feature_columns)
         }
-        # dense network
-        self.deep_network = DNN(deep_hidden_units, activation, dnn_dropout)
         # sparse network
+        self.deep_network = DNN(deep_hidden_units, activation, dnn_dropout)
+        # dense network
         self.wide_network = DNN(wide_hidden_units, activation, dnn_dropout)
 
         # label_embedding
         self.label_embedding = Dense(label_embed_nums)
-
-        # classes_num binary classification
-        self.final_linear = Dense(classes)
 
     def call(self, inputs, **kwargs):
         dense_inputs, embedding_inputs, raw_inputs = inputs
@@ -83,14 +110,13 @@ class WideDeep(tf.keras.Model):
         deep_out = self.deep_network(x)
         out = tf.concat([wide_out, deep_out], axis=-1)
         out_embedding = self.label_embedding(out)
-        output = self.final_linear(out_embedding)
-        # out
-        output = tf.nn.sigmoid(output)
-        return output
 
-    def summary(self, **kwargs):
+        return out_embedding
+
+    def create_model(self):
         dense_inputs = Input(shape=(len(self.dense_feature_columns),), dtype=tf.float32)
         embedding_inputs = Input(shape=(len(self.embedding_feature_columns),), dtype=tf.int32)
         raw_inputs = Input(shape=(len(self.raw_feature_columns, )), dtype=tf.int32)
-        tf.keras.Model(inputs=[dense_inputs, embedding_inputs, raw_inputs],
-                       outputs=self.call([dense_inputs, embedding_inputs, raw_inputs])).summary()
+        model = tf.keras.Model(inputs=[dense_inputs, embedding_inputs, raw_inputs],
+                               outputs=self([dense_inputs, embedding_inputs, raw_inputs]))
+        return model
