@@ -31,6 +31,8 @@ class DNN(Layer):
         x = self.dropout(x)
         return x
 
+class WideDeepNoSigmoid(tf.keras.Model):
+    pass
 
 class WideDeep(tf.keras.Model):
     def __init__(self, feature_columns, deep_hidden_units, wide_hidden_units, activation='relu',
