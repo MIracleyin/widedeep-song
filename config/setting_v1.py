@@ -14,6 +14,14 @@ train_cfg = dict(
     epochs=5,
 )
 
+val_cfg = dict(
+    data_path='data/groupby.csv',
+    work_dir='setting_v1',
+    read_part=True,
+    sample_num=1000,
+    test_size=0.1
+)
+
 model_cfg = dict(
     embed_dim=4,
     dnn_dropout=0.1,

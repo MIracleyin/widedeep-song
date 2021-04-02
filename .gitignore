@@ -3,3 +3,4 @@ data/data_sample.csv
 *__pycache__
 data/head.xlsx
 work_dirs
+/run/
